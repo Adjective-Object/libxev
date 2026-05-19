@@ -318,14 +318,15 @@ export fn xev_async_wait(
 //-------------------------------------------------------------------
 // File
 
-export fn xev_file_init(v: *xev.File, fd: c_int) c_int {
+export fn xev_file_init(v: *xev.File, fd: usize) c_int {
     // std.Io.File.Handle is an integer fd on POSIX but a HANDLE
-    // (`*anyopaque`) on Windows. Convert the C-ABI int accordingly so
-    // this exported C entry point compiles on both.
+    // (`*anyopaque`) on Windows. Accept the handle as a uintptr-sized
+    // value so the C ABI is wide enough for a 64-bit Windows HANDLE,
+    // then convert to whatever the platform's Handle type actually is.
     const Handle = std.Io.File.Handle;
     const handle: Handle = switch (@typeInfo(Handle)) {
-        .int => @intCast(fd),
-        .pointer => @ptrFromInt(@as(usize, @bitCast(@as(isize, fd)))),
+        .int => @intCast(@as(isize, @bitCast(fd))),
+        .pointer => @ptrFromInt(fd),
         else => @compileError("unsupported std.Io.File.Handle type"),
     };
     v.* = xev.File.initFd(handle);
